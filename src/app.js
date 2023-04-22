@@ -1,9 +1,10 @@
 import express from "express"
 import cors from "cors"
 import dotenv from "dotenv"
-import { MongoClient } from "mongodb"
+import { MongoClient, ObjectId } from "mongodb"
 import joi from "joi"
-import bcrypt from "bcrypt"
+import bcrypt, { compareSync } from "bcrypt"
+import { v4 as uuid } from "uuid"
 
 const app = express()
 
@@ -56,6 +57,38 @@ app.post("/cadastro", async (req,res)=> {
     }
 })
 
+app.post("/", async (req,res)=>{
+
+    const { email, password } = req.body
+
+    const loginSchema = joi.object({
+        email: joi.string().email().required(),
+        password: joi.string().min(3).required()
+    })
+
+    const validation = loginSchema.validate(req.body)
+
+    if (validation.error) {
+        const errors = validation.error.details.map((detail) => detail.message);
+        return res.status(422).send(errors);
+    }
+
+    try{
+        const registredUser = await db.collection('users').findOne({email: email})
+
+        if(!registredUser) return res.status(404).send("E-mail não cadastrado!")
+        if(!bcrypt.compareSync(password,registredUser.password)) return res.status(401).send("Senha invalida!")
+        
+        const token = uuid()
+        
+        await db.collection("sessions").insertOne({userId: registredUser._id, token})
+
+        return res.status(200).send(token)
+    }catch (err){
+        return res.status(500).send(err.message)
+    }
+
+})
 
 const PORT = 5000
 app.listen(PORT, () => console.log(`app running on port ${PORT}`))
