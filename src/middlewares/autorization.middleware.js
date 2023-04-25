@@ -1,4 +1,4 @@
-import { db } from "../database/database.connection"
+import { db } from "../database/database.connection.js"
 
 export async function authorizationValidation(req,res,next){
     const { authorization } = req.headers

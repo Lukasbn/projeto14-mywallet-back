@@ -1,3 +1,4 @@
+
 import dayjs from "dayjs"
 import { newTransitionSchema } from "../schemas/transactions.schemas.js";
 import { db } from "../database/database.connection.js";
@@ -5,6 +6,8 @@ import { db } from "../database/database.connection.js";
 export async function postNewTransaction(req,res){
     const { value, description } = req.body
     const { tipo } = req.params
+    const { authorization } = req.headers
+    const token = authorization?.replace("Bearer ", "")
     const newValue  = value.replace('.',',')
     const date = dayjs().format("DD/MM")
 
@@ -15,8 +18,11 @@ export async function postNewTransaction(req,res){
         return res.status(422).send(errors);
     }
 
+    if(!token) return res.sendStatus(401)
+
     try{
-        const sessao = req.locals.sessao
+        const sessao = await db.collection('sessions').findOne({token})
+        if(!sessao) return res.sendStatus(401)
 
         await db.collection('transactions').insertOne({date, userId: sessao.userId, type: tipo, value: newValue, description})
         res.sendStatus(201)
@@ -26,8 +32,14 @@ export async function postNewTransaction(req,res){
 }
 
 export async function gethome(req,res){
+    const { authorization } = req.headers
+    const token = authorization?.replace("Bearer ", "")
+
+    if(!token) return res.sendStatus(401)
+
     try{
-        const sessao = req.locals.sessao
+        const sessao = await db.collection('sessions').findOne({token})
+        if(!sessao) return res.sendStatus(401)
 
         const transactions = await db.collection('transactions').find({userId: sessao.userId}).toArray()
         transactions.forEach(tr => delete tr.userId)
