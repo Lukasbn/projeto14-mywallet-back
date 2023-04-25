@@ -5,6 +5,7 @@ import { MongoClient, ObjectId } from "mongodb"
 import joi from "joi"
 import bcrypt, { compareSync } from "bcrypt"
 import { v4 as uuid } from "uuid"
+import dayjs from "dayjs"
 
 const app = express()
 
@@ -88,6 +89,42 @@ app.post("/", async (req,res)=>{
         return res.status(500).send(err.message)
     }
 
+})
+
+app.post("/nova-transacao/:tipo", async (req,res)=>{
+    const { value, description } = req.body
+    const { tipo } = req.params
+    const { authorization } = req.headers
+    const token = authorization?.replace("Bearer ", "")
+    const newValue  = value.replace('.',',')
+    const date = dayjs().format("DD/MM")
+    console.log(date)
+
+    const newTransitionSchema = joi.object({
+        value: joi.number().precision(2).positive().required(),
+        description: joi.string().required()
+    })
+
+    const validation = newTransitionSchema.validate(req.body)
+
+    if (validation.error) {
+        const errors = validation.error.details.map((detail) => detail.message);
+        return res.status(422).send(errors);
+    }
+
+    if(!token) return res.sendStatus(401)
+
+    try{
+        const sessao = await db.collection('sessions').findOne({token})
+        if(!sessao) return res.sendStatus(401)
+
+        console.log(sessao.userId)
+
+        await db.collection('transactions').insertOne({date, userId: sessao.userId, type: tipo, value: newValue, description})
+        res.sendStatus(201)
+    }catch(err){
+        return res.status(500).send(err.message)
+    }
 })
 
 const PORT = 5000
