@@ -4,16 +4,7 @@ import { loginSchema, signUpSchema } from "../schemas/users.schemas.js";
 import { db } from "../database/database.connection.js";
 
 export async function postSignIn(req,res) {
-
     const { name, email, password } = req.body
-
-    const validation = signUpSchema.validate(req.body)
-
-    if (validation.error) {
-        const errors = validation.error.details.map((detail) => detail.message);
-        return res.status(422).send(errors);
-    }
-
     const hashedPassword = bcrypt.hashSync(password,10)
 
     const newuser = {
@@ -35,15 +26,7 @@ export async function postSignIn(req,res) {
 }
 
 export async function postLogin(req,res){
-
     const { email, password } = req.body
-
-    const validation = loginSchema.validate(req.body)
-
-    if (validation.error) {
-        const errors = validation.error.details.map((detail) => detail.message);
-        return res.status(422).send(errors);
-    }
 
     try{
         const registredUser = await db.collection('users').findOne({email: email})
