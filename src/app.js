@@ -98,7 +98,6 @@ app.post("/nova-transacao/:tipo", async (req,res)=>{
     const token = authorization?.replace("Bearer ", "")
     const newValue  = value.replace('.',',')
     const date = dayjs().format("DD/MM")
-    console.log(date)
 
     const newTransitionSchema = joi.object({
         value: joi.number().precision(2).positive().required(),
@@ -118,10 +117,41 @@ app.post("/nova-transacao/:tipo", async (req,res)=>{
         const sessao = await db.collection('sessions').findOne({token})
         if(!sessao) return res.sendStatus(401)
 
-        console.log(sessao.userId)
-
         await db.collection('transactions').insertOne({date, userId: sessao.userId, type: tipo, value: newValue, description})
         res.sendStatus(201)
+    }catch(err){
+        return res.status(500).send(err.message)
+    }
+})
+
+app.get("/home", async (req,res)=>{
+    const { authorization } = req.headers
+    const token = authorization?.replace("Bearer ", "")
+
+    if(!token) return res.sendStatus(401)
+
+    try{
+        const sessao = await db.collection('sessions').findOne({token})
+        if(!sessao) return res.sendStatus(401)
+
+        const transactions = await db.collection('transactions').find({userId: sessao.userId}).toArray()
+        transactions.forEach(tr => delete tr.userId)
+
+        let total = 0
+        transactions.forEach((tr)=> {
+            if(tr.type === 'entrada'){
+                total = total + (Number(tr.value.replace(",",".")))
+            } else {
+                total = total - (Number(tr.value.replace(",",".")))
+            }
+        })
+
+        const usuario = await db.collection('users').findOne({_id: sessao.userId})
+
+        const response = {transactions, name: usuario.name, total: total.toFixed(2)}
+
+
+        res.send(response)
     }catch(err){
         return res.status(500).send(err.message)
     }
